@@ -90,3 +90,28 @@ Ein echter Image-Build und ein Deployment auf einer EasyPanel-Instanz wurden hie
 nicht durchgefuehrt.
 
 Quelle: https://easypanel.io/docs/services/compose (Stand 22.10.2026)
+
+## Wenn setup ohne sichtbare Fehlermeldung abbricht
+
+Seit Diagnose-Version 2 gibt das Setup jeden Arbeitsschritt aus und schreibt dieselbe
+Ausgabe dauerhaft nach /home/frappe/frappe-bench/logs/bundle-setup.log im logs-Volume.
+Auch Fehler, die Bench nur auf stdout statt stderr schreibt, werden sichtbar gemacht.
+Es werden keine Shell-Traces mit Passwortargumenten aktiviert.
+
+Nach einem erneuten Deploy muss im setup-Log START Diagnose-Version 2 erscheinen.
+Falls die EasyPanel-Ansicht leer bleibt, auf dem Server direkt lesen:
+
+    docker logs --tail 150 dms_frappe-setup-1
+
+Fuer das im Fehlerbild gezeigte Projekt dms / Service frappe kann die persistente
+Datei auch aus dem gestoppten Container kopiert werden:
+
+    docker cp dms_frappe-setup-1:/home/frappe/frappe-bench/logs/bundle-setup.log ./bundle-setup.log
+
+Bei anderen Projekt-/Servicenamen den Containernamen anpassen. Ist selbst die
+START-Meldung nicht vorhanden und die Datei existiert nicht, den Containerstatus pruefen:
+
+    docker inspect --format '{{json .State}}' dms_frappe-setup-1
+
+Das zeigt auch Startfehler des Containers vor dem Aufruf des Skripts. Eine leere
+Logansicht allein identifiziert die Ursache nicht. Bestehende Volumes beibehalten.
