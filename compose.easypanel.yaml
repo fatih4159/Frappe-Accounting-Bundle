@@ -1,0 +1,230 @@
+# EasyPanel: Git source, build path /, automatic build and bootstrap.
+x-app:
+  image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+  pull_policy: never
+  restart: unless-stopped
+  environment: &id001
+    TZ: ${TZ:-Europe/Berlin}
+  volumes: &id002
+  - sites:/home/frappe/frappe-bench/sites
+  - logs:/home/frappe/frappe-bench/logs
+x-ready:
+  configurator:
+    condition: service_completed_successfully
+services:
+  db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+    command:
+    - --character-set-server=utf8mb4
+    - --collation-server=utf8mb4_unicode_ci
+    volumes:
+    - db-data:/var/lib/mysql
+    healthcheck:
+      test:
+      - CMD
+      - healthcheck.sh
+      - --connect
+      - --innodb_initialized
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+  redis-cache:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  redis-queue:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command:
+    - redis-server
+    - --appendonly
+    - 'yes'
+    volumes:
+    - redis-data:/data
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  configurator:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: 'no'
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      db:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+      redis-queue:
+        condition: service_healthy
+    command:
+    - bash
+    - -ec
+    - 'ls -1 apps > sites/apps.txt
+
+      bench set-config -g db_host db
+
+      bench set-config -gp db_port 3306
+
+      bench set-config -g redis_cache redis://redis-cache:6379
+
+      bench set-config -g redis_queue redis://redis-queue:6379
+
+      bench set-config -g redis_socketio redis://redis-queue:6379
+
+      bench set-config -gp socketio_port 9000
+
+      bench set-config -g chromium_path /usr/lib/chromium/chromium-headless-shell
+
+      '
+  backend:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        FRAPPE_BRANCH: ${FRAPPE_BRANCH:-version-16}
+        CACHE_BUST: ${BUILD_REVISION:-1}
+  websocket:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    command:
+    - node
+    - /home/frappe/frappe-bench/apps/frappe/socketio.js
+  queue-short:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    command:
+    - bench
+    - worker
+    - --queue
+    - short,default
+  queue-long:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    command:
+    - bench
+    - worker
+    - --queue
+    - long,default,short
+  scheduler:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment: *id001
+    volumes: *id002
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    command:
+    - bench
+    - schedule
+  frontend:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${ERP_SITE:-erp.localhost}
+      NGINX_LISTEN_PORT: '8080'
+      CLIENT_MAX_BODY_SIZE: 100m
+      PROXY_READ_TIMEOUT: '120'
+    volumes: *id002
+    command:
+    - nginx-entrypoint.sh
+    depends_on:
+      backend:
+        condition: service_started
+      websocket:
+        condition: service_started
+    expose:
+    - '8080'
+  suite-frontend:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: unless-stopped
+    environment:
+      BACKEND: backend:8000
+      SOCKETIO: websocket:9000
+      FRAPPE_SITE_NAME_HEADER: ${SUITE_SITE:-suite.localhost}
+      NGINX_LISTEN_PORT: '8080'
+      CLIENT_MAX_BODY_SIZE: 100m
+      PROXY_READ_TIMEOUT: '120'
+    volumes: *id002
+    command:
+    - nginx-entrypoint.sh
+    depends_on:
+      backend:
+        condition: service_started
+      websocket:
+        condition: service_started
+    expose:
+    - '8080'
+  setup:
+    image: ${CUSTOM_IMAGE:-local/frappe-suite}:${CUSTOM_TAG:-16}
+    pull_policy: never
+    restart: 'no'
+    environment:
+      ERP_SITE: ${ERP_SITE:-erp.localhost}
+      SUITE_SITE: ${SUITE_SITE:-suite.localhost}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+    volumes:
+    - sites:/home/frappe/frappe-bench/sites
+    - logs:/home/frappe/frappe-bench/logs
+    depends_on:
+      configurator:
+        condition: service_completed_successfully
+    command:
+    - bash
+    - /opt/setup-sites.sh
+volumes:
+  sites: null
+  logs: null
+  db-data: null
+  redis-data: null
+x-installed:
+  setup:
+    condition: service_completed_successfully

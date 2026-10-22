@@ -14,9 +14,10 @@ ensure_site() {
   fi
 }
 ensure_app() {
-  local site="$1" app="$2" installed
+  local site="$1" app="$2" installed present
   installed="$(bench --site "$site" list-apps --format json)"
-  if ! python -c 'import json,sys; data=json.load(sys.stdin); sys.exit(0 if sys.argv[2] in data[sys.argv[1]] else 1)' "$site" "$app" <<< "$installed"; then
+  present="$(python -c 'import json,sys; data=json.load(sys.stdin); print("yes" if sys.argv[2] in data[sys.argv[1]] else "no")' "$site" "$app" <<< "$installed")"
+  if [[ "$present" != yes ]]; then
     bench --site "$site" install-app "$app"
   fi
 }

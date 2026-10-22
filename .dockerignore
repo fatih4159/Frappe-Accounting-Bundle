@@ -1,0 +1,10 @@
+*
+!Dockerfile
+!apps.json
+!scripts/
+!scripts/setup-sites.sh
+!vendor/
+!vendor/frappe_docker/
+!vendor/frappe_docker/resources/
+!vendor/frappe_docker/resources/**
+!vendor/frappe_docker/LICENSE

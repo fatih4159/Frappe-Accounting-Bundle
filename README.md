@@ -12,7 +12,13 @@ Deshalb liegen ERPNext/HRMS und Suite auf getrennten Sites im selben Stack.
 Die Sites teilen Image, Datenbankserver und Worker, haben aber getrennte Datenbanken
 und Benutzerkonten. Ein gemeinsamer Login wird hier nicht eingerichtet.
 
-## Installation
+## Direkt in EasyPanel deployen
+
+Die vorbereitete Variante ist [compose.easypanel.yaml](compose.easypanel.yaml).
+Sie baut das Image automatisch und installiert die Apps beim ersten Start.
+Die Einrichtung in EasyPanel steht in [EASYPANEL.md](EASYPANEL.md).
+
+## Manuelle Installation mit Docker Compose
 
 Voraussetzungen: Linux, Git, Bash, sha256sum, Docker mit BuildKit/Buildx und Compose v2.
 Der Server braucht Zugriff auf GitHub und Paket-/Containerregistries.
@@ -38,6 +44,8 @@ Ursache beheben und erneut ausfuehren. Vorhandene Passwoerter werden nicht zurue
 
 ## Dateien und Versionen
 
+- Dockerfile und vendor/: eigenstaendiger Image-Build fuer EasyPanel.
+- compose.easypanel.yaml: automatischer Build und Setup ohne veroeffentlichte Host-Ports.
 - compose.yaml: MariaDB, Redis, Backend, Worker, Scheduler, Websocket, Nginx und Setup.
 - .env.example: Konfiguration ohne echte Zugangsdaten; lokal als .env verwenden.
 - apps.json: ERPNext/HRMS auf version-16 und Suite auf develop. Frappe selbst wird
