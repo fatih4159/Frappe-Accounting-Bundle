@@ -221,10 +221,14 @@ services:
     - bash
     - /opt/setup-sites.sh
 volumes:
-  sites: null
-  logs: null
-  db-data: null
-  redis-data: null
+  sites:
+    name: ${COMPOSE_PROJECT_NAME:?Compose project name required}_sites${DATA_VOLUME_SUFFIX:-}
+  logs:
+    name: ${COMPOSE_PROJECT_NAME:?Compose project name required}_logs${DATA_VOLUME_SUFFIX:-}
+  db-data:
+    name: ${COMPOSE_PROJECT_NAME:?Compose project name required}_db-data${DATA_VOLUME_SUFFIX:-}
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:?Compose project name required}_redis-data${DATA_VOLUME_SUFFIX:-}
 x-installed:
   setup:
     condition: service_completed_successfully

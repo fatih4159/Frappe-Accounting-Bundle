@@ -115,3 +115,27 @@ START-Meldung nicht vorhanden und die Datei existiert nicht, den Containerstatus
 
 Das zeigt auch Startfehler des Containers vor dem Aufruf des Skripts. Eine leere
 Logansicht allein identifiziert die Ursache nicht. Bestehende Volumes beibehalten.
+
+## Separater Neustart nach fehlgeschlagener Erstinstallation
+
+Falls MariaDB das im Container gesetzte MARIADB_ROOT_PASSWORD nicht akzeptiert,
+ist eine Authentifizierungsabweichung bestaetigt. Fuer eine neue Installation ohne
+zu uebernehmende Daten kann ein neuer, leerer Satz Volumes verwendet werden:
+
+    DATA_VOLUME_SUFFIX=_fresh_20261022_01
+
+Diesen Wert zusaetzlich in EasyPanels Environment setzen, Create .env file aktiviert
+lassen und deployen. DB_ROOT_PASSWORD und ADMIN_PASSWORD muessen vor dem Start
+gefuellt sein; Werte mit Sonderzeichen in einfache Anfuehrungszeichen setzen.
+Datenbank, Sites, Queue und Logs wechseln gemeinsam auf neue Volumes. Alte Volumes
+werden weder geleert noch geloescht; ihre Daten erscheinen in der neuen Installation
+nicht. Nach erfolgreicher Einrichtung den Suffix dauerhaft beibehalten.
+Mit leerem Suffix werden wieder die urspruenglichen Volumes ausgewaehlt; zum Wechsel
+zuerst den Service stoppen, damit alte und neue Datenbestaende nicht gleichzeitig
+verwendet werden. Das ist eine neue Installation, keine Migration oder Reparatur
+vorhandener Geschaeftsdaten. Bei bereits produktiven Daten stattdessen den bestehenden
+Datenbankzugang wiederherstellen.
+
+Der Standard ohne Suffix entspricht weiterhin den bisherigen, nach Compose-Projekt
+benannten Volumes. Docker Compose liefert COMPOSE_PROJECT_NAME aus seinem Projektnamen
+(EasyPanel verwendet -p); diese Variable nicht manuell ueberschreiben.
